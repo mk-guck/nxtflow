@@ -4,10 +4,10 @@ import static io.nflow.rest.v1.ApiWorkflowInstanceInclude.actionStateVariables;
 import static io.nflow.rest.v1.ApiWorkflowInstanceInclude.actions;
 import static io.nflow.rest.v1.ApiWorkflowInstanceInclude.childWorkflows;
 import static io.nflow.rest.v1.ApiWorkflowInstanceInclude.currentStateVariables;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -24,7 +24,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.TextNode;
 
 import io.nflow.engine.workflow.instance.WorkflowInstance;
-import io.nflow.engine.workflow.instance.WorkflowInstanceAction;
 import io.nflow.rest.v1.ApiWorkflowInstanceInclude;
 import io.nflow.rest.v1.msg.Action;
 import io.nflow.rest.v1.msg.ListWorkflowInstanceResponse;
@@ -57,16 +56,13 @@ public class ListWorkflowInstanceConverter {
     resp.signal = instance.signal.orElse(null);
     resp.isArchived = queryArchive ? Boolean.valueOf(instance.isArchived) : null;
     if (includes.contains(actions)) {
-      resp.actions = new ArrayList<>();
-      for (WorkflowInstanceAction action : instance.actions) {
-        if (includes.contains(actionStateVariables)) {
-          resp.actions.add(new Action(action.id, action.type.name(), action.state, action.stateText, action.retryNo,
-              action.executionStart, action.executionEnd, action.executorId, stateVariablesToJson(action.updatedStateVariables)));
-        } else {
-          resp.actions.add(new Action(action.id, action.type.name(), action.state, action.stateText, action.retryNo,
-              action.executionStart, action.executionEnd, action.executorId));
-        }
-      }
+      resp.actions = instance.actions.stream()
+          .map(action -> includes.contains(actionStateVariables)
+              ? new Action(action.id, action.type.name(), action.state, action.stateText, action.retryNo,
+                  action.executionStart, action.executionEnd, action.executorId, stateVariablesToJson(action.updatedStateVariables))
+              : new Action(action.id, action.type.name(), action.state, action.stateText, action.retryNo,
+                  action.executionStart, action.executionEnd, action.executorId))
+          .collect(toList());
     }
     if (includes.contains(currentStateVariables)) {
       resp.stateVariables = stateVariablesToJson(instance.stateVariables);
